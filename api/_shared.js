@@ -1,7 +1,14 @@
 /** Helpers shared by the registration, delegate-card and check-in functions (the leading underscore keeps Vercel from exposing this file as a route). */
 const crypto = require('crypto');
 
-const reply = (res, status, data) => { res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff'); res.status(status); return res.json(data); };
+const reply = (res, status, data) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.status(status);
+  return res.json(data);
+};
 
 /** POST + JSON + same-origin only. Returns the parsed body, or null after sending the error response. */
 function guard(req, res) {
