@@ -24,11 +24,24 @@ const clientIp = req => String(req.headers['x-forwarded-for'] || req.socket?.rem
 
 /** Best-effort in-memory limiter (each serverless instance keeps its own counts). */
 const buckets = new Map();
+const MAX_RATE_LIMIT_KEYS = 5000;
 function limited(key, max, windowMs) {
-  const now = Date.now(), b = buckets.get(key) || { n: 0, t: now };
-  if (now - b.t > windowMs) { b.n = 0; b.t = now; }
-  b.n++; buckets.set(key, b);
-  if (buckets.size > 5000) for (const [k, v] of buckets) if (now - v.t > windowMs) buckets.delete(k);
+  // A broken configuration must never accidentally disable limiting.
+  if (!Number.isSafeInteger(max) || max < 1 ||
+      !Number.isFinite(windowMs) || windowMs <= 0) return true;
+  const now = Date.now();
+  let b = buckets.get(key);
+  if (!b && buckets.size >= MAX_RATE_LIMIT_KEYS) {
+    for (const [k, v] of buckets) {
+      if (now - v.t >= windowMs) buckets.delete(k);
+    }
+    // An unbounded stream of distinct keys can otherwise consume memory.
+    // Refuse new principals if every existing slot is still active.
+    if (buckets.size >= MAX_RATE_LIMIT_KEYS) return true;
+  }
+  if (!b || now - b.t >= windowMs) b = { n: 0, t: now };
+  b.n++;
+  buckets.set(key, b);
   return b.n > max;
 }
 
