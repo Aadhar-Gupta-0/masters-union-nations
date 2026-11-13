@@ -23,6 +23,17 @@ test('cross-origin registration requests are refused',()=>{
   assert.equal(out,null);
   assert.equal(res.statusCode,403);
 });
+test('registration only accepts actual JSON objects',()=>{
+  let res=mockResponse();
+  assert.equal(guard({method:'POST',headers:{host:'mun.example','content-type':'application/json-extra'},body:{}},res),null);
+  assert.equal(res.statusCode,415);
+  res=mockResponse();
+  assert.equal(guard({method:'POST',headers:{host:'mun.example','content-type':'application/json'},body:[]},res),null);
+  assert.equal(res.statusCode,400);
+  res=mockResponse();
+  assert.equal(guard({method:'POST',headers:{host:'mun.example','content-type':'application/json','content-length':'NaN'},body:{}},res),null);
+  assert.equal(res.statusCode,413);
+});
 test('large registration payloads are refused',()=>{
   const res=mockResponse();
   assert.equal(guard({method:'POST',headers:{host:'mun.example','content-type':'application/json','content-length':'5000'}},res),null);
