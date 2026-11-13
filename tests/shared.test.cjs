@@ -62,3 +62,18 @@ test('limiter constrains repeated requests',()=>{
   assert.equal(limited(key,2,60000),false);
   assert.equal(limited(key,2,60000),true);
 });
+
+test('limiter rejects unbounded unique-key flooding without resetting active counters',()=>{
+  const prefix='flood-test-'+process.pid+'-';
+  const known=prefix+'known';
+  assert.equal(limited(known,2,60000),false);
+  let denied=0;
+  for(let i=0;i<5002;i++) {
+    if(limited(prefix+i,1,60000)) denied++;
+  }
+  assert(denied>0,'new keys must be rejected when capacity is exhausted');
+  assert.equal(limited(known,2,60000),false,'existing principal retains its counter');
+  assert.equal(limited(known,2,60000),true,'existing principal remains limited');
+  assert.equal(limited('bad-config',0,60000),true);
+  assert.equal(limited('bad-window',2,0),true);
+});
