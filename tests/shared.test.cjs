@@ -77,3 +77,13 @@ test('limiter rejects unbounded unique-key flooding without resetting active cou
   assert.equal(limited('bad-config',0,60000),true);
   assert.equal(limited('bad-window',2,0),true);
 });
+
+test('registration errors prevent caching, clickjacking and referrer leakage',()=>{
+  const res=mockResponse();
+  assert.equal(guard({method:'GET',headers:{}},res),null);
+  assert.equal(res.statusCode,405);
+  assert.equal(res.headers['Cache-Control'],'no-store');
+  assert.equal(res.headers['X-Content-Type-Options'],'nosniff');
+  assert.equal(res.headers['Referrer-Policy'],'no-referrer');
+  assert.equal(res.headers['X-Frame-Options'],'DENY');
+});
