@@ -6,11 +6,18 @@ const reply = (res, status, data) => { res.setHeader('Cache-Control', 'no-store'
 /** POST + JSON + same-origin only. Returns the parsed body, or null after sending the error response. */
 function guard(req, res) {
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); reply(res, 405, { error: 'Method not allowed.' }); return null; }
-  if (!(req.headers['content-type'] || '').toLowerCase().includes('application/json')) { reply(res, 415, { error: 'JSON body required.' }); return null; }
+  const contentType = String(req.headers['content-type'] || '').split(';', 1)[0].trim().toLowerCase();
+  if (contentType !== 'application/json') { reply(res, 415, { error: 'JSON body required.' }); return null; }
   const host = (req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
   if (req.headers.origin) { try { if (new URL(req.headers.origin).host !== host) { reply(res, 403, { error: 'Cross-site requests not allowed.' }); return null; } } catch { reply(res, 403, { error: 'Invalid request origin.' }); return null; } }
-  if (Number(req.headers['content-length'] || 0) > 4000) { reply(res, 413, { error: 'Request too large.' }); return null; }
-  return typeof req.body === 'object' && req.body !== null ? req.body : {};
+  const declaredLength = Number(req.headers['content-length'] || 0);
+  if (!Number.isFinite(declaredLength) || declaredLength < 0 || declaredLength > 4000) {
+    reply(res, 413, { error: 'Invalid or oversized request length.' }); return null;
+  }
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    reply(res, 400, { error: 'A JSON object is required.' }); return null;
+  }
+  return req.body;
 }
 
 const clientIp = req => String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
